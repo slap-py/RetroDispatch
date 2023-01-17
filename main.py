@@ -1,6 +1,7 @@
 import curses
 import json
 import random
+import time
 
 screen = curses.initscr() 
 #curses.noecho() 
@@ -25,6 +26,7 @@ sort_text = r''' ____   ___  ____ _____
 \___ \| | | | |_) || |  
  ___) | |_| |  _ < | |  
 |____/ \___/|_| \_\|_|  '''
+code_to_pt = {'ENG':'Engine','BLSAMBO':'Aid','BC':'Battalion','ENGT3':'Brush','ALSAMBO':'Medic','LADNP':'Ladder N/P','AIR':'Air'}
 units_list = {
     'E191':{'name':'Engine 191','type':'ENG','dept':'Mercer Island Fire Department','station':'91','available':True},
     'A191':{'name':'Aid 191','type':'BLSAMBO','dept':'MIFD','station':'91','available':True},
@@ -40,7 +42,7 @@ units_list = {
     'E102':{'name':'Engine 102','type':'ENG','dept':'BVFD','station':'2','available':True},
     'A102':{'name':'Aid 102','type':'BLSAMBO','dept':'BVFD','station':'2','available':True},
     'M102':{'name':'Medic 102','type':'ALSAMBO','dept':'BVFD','station':'2','available':True},
-    'MSO105':{'name':'Medic Staff Officer 105','type':'MSO','dept':'BVFD','station':'2','available':True},
+    'MSO105':{'name':'Medic Sup. 105','type':'MSO','dept':'BVFD','station':'2','available':True},
     'E103':{'name':'Engine 103','type':'ENG','dept':'BVFD','station':'3','available':True},
     'L103':{'name':'Ladder 103','type':'LADNP','dept':'BVFD','station':'3','available':True},
     'A103':{'name':'Aid 103','type':'BLSAMBO','dept':'BVFD','station':'3','available':True},
@@ -84,8 +86,17 @@ def generate_street_name():
     return [street_number,street_suffix,street_direction]
 commandDone = False
 call = None
-minimums = []
+minimums = [None,1500]
 bcchance = 0
+length = None
+startTime = None
+rtc = False
+points = 0 
+minimum_stop = False
+def set_points(total):
+    screen.addstr(5,1,"Total Points:",curses.A_UNDERLINE)
+    screen.addstr(5,16,str(total))
+set_points(0)
 def update_command(unit,street_info = generate_street_name()):
     global commandDone
     #8th Avenue W cmd (Engine 191)
@@ -97,6 +108,7 @@ def create_call():
     global call
     global minimums
     global bcchance
+    global length
 
     f = open('situations.json')
     data = f.read()
@@ -109,6 +121,7 @@ def create_call():
     if random.randint(0,100)<=bcchance:
         bcchance=True
     else:bcchance=False
+    length = random.randint(data['time_min'],data['time_max'])
     screen.addstr(1,1,'Assignment:',curses.A_UNDERLINE)
     screen.addstr(1,13,data['title'])
 
@@ -170,6 +183,42 @@ def redraw_units_lists():
         screen.addstr(x+2,int(curses.COLS/2.5),str(units_list_o[x]['name']))
 
 while True:
+    if minimums[1] == 0 and minimum_stop == False:
+        startTime = time.time()
+        screen.addstr(23,2,'                                      ')
+        screen.addstr(23,2,'Time started.')
+        minimum_stop = True
+        clear_requirement()
+    if startTime !=None:
+        if time.time()-startTime>=length:
+            generate_requirement('Call complete. Clear units.')
+            rtc=True
+    if rtc == True and units_list_o == []:
+        if bcchance == "Complete" or bcchance == False:
+            points+=500
+            set_points(points)
+        else:
+            points+=250
+            set_points(points)
+        commandDone = False
+        call = None
+        minimums = [None,1500]
+        bcchance = 0
+        length = None
+        startTime = None
+        rtc = False
+        minimum_stop = False
+        clear_requirement()
+        screen.addstr(4,12,'                               ')
+        screen.addstr(4,12,'No active call.')
+        screen.addstr(3,19,'                               ')
+        screen.addstr(3,19,'No active call.')
+        screen.addstr(2,10,'                               ')
+        screen.addstr(2,10,'No active call.')
+        screen.addstr(1,13,'                               ')
+        screen.addstr(1,13,'No active call.')
+
+
     event = screen.getch() 
     if event == curses.KEY_MOUSE:
         _, mx, my, _, _ = curses.getmouse()
@@ -186,21 +235,34 @@ while True:
         elif mx>=96 and mx<=110 and my>=2:
             screen.addstr(22,2,'                                     ')
             if lastButton == 'dispatch':
+
                 screen.addstr(22,2,'Dispatch '+str(units_list_a[my-2]['name'])+' registered.')
                 #a_list_cache = units_list[list(units_list.keys())[my-2]]
                 a_list_cache = units_list_a[my-2]
                 idx = units_list_a.index(a_list_cache)
-                
+                if a_list_cache['type'] == minimums[0]:
+                    minimums[1] -=1
+                    screen.addstr(23,2,'                                      ')
+                    screen.addstr(23,2,str(str(commandDone)+' '+str(bcchance)))
+                if minimums[1] == 1 and bcchance == False or bcchance == 'Complete' and minimum_stop == False:
+                    generate_requirement('1 {} company requested.'.format(code_to_pt[minimums[0]]))
+                elif minimums[1] > 1 and bcchance == False or bcchance == 'Complete' and minimum_stop == False:
+                    generate_requirement ('{} {} companies requested.'.format(minimums[1],code_to_pt[minimums[0]]))
+                elif bcchance == True:
+                    #wait until BC on scene
+                    pass
                 if commandDone==False:
                     existing_street_name = generate_street_name()
                     update_command(units_list_a[my-2]['name'],street_info=existing_street_name)
-                if units_list_a[my-2]['type'] == "BC" and commandDone == True:
+
+                if units_list_a[my-2]['type'] == "BC" and commandDone == False:
                     update_command(units_list_a[my-2]['name'],street_info=existing_street_name)
                     if bcchance==True:
                         clear_requirement()
                 if bcchance == True:
                     generate_requirement('A command unit is requested.')
-                    bcchance=False
+                    bcchance='Complete'
+
                 del units_list_a[idx]
                 units_list_o.append(a_list_cache)
                 redraw_units_lists()
