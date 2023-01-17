@@ -7,6 +7,7 @@ screen = curses.initscr()
 curses.curs_set(0) 
 screen.keypad(1) 
 curses.mousemask(1)
+screen.nodelay(True)
 dispatch_text = r''' ____ ___ ____  ____   _  _____ ____ _   _ 
 |  _ \_ _/ ___||  _ \ / \|_   _/ ___| | | |
 | | | | |\___ \| |_) / _ \ | || |   | |_| |
@@ -56,6 +57,12 @@ units_list = {
 '''when terminating a call:
 return all units available
 make call=None, minimums=None, bcchance=None, commandDone=None'''
+def generate_requirement(text):
+    screen.addstr(3,19,'                             ')
+    screen.addstr(3,19,text)
+def clear_requirement():
+    screen.addstr(3,19,'                             ')
+    screen.addstr(3,19,'No active requests from cmd.')
 def generate_street_name():
     suffix = ""
     street_number = str(random.randint(24, 96))
@@ -76,6 +83,9 @@ def generate_street_name():
     
     return [street_number,street_suffix,street_direction]
 commandDone = False
+call = None
+minimums = []
+bcchance = 0
 def update_command(unit,street_info = generate_street_name()):
     global commandDone
     #8th Avenue W cmd (Engine 191)
@@ -93,7 +103,12 @@ def create_call():
     f.close()
     data = json.loads(data)
     data = random.choice(data)
-
+    call = data['title']
+    minimums = [data['minimum_type'],data['minimum_count']]
+    bcchance = data['b/c']
+    if random.randint(0,100)<=bcchance:
+        bcchance=True
+    else:bcchance=False
     screen.addstr(1,1,'Assignment:',curses.A_UNDERLINE)
     screen.addstr(1,13,data['title'])
 
@@ -156,7 +171,6 @@ def redraw_units_lists():
 
 while True:
     event = screen.getch() 
-    if event == ord("q"): break 
     if event == curses.KEY_MOUSE:
         _, mx, my, _, _ = curses.getmouse()
         y, x = screen.getyx()
@@ -182,6 +196,11 @@ while True:
                     update_command(units_list_a[my-2]['name'],street_info=existing_street_name)
                 if units_list_a[my-2]['type'] == "BC" and commandDone == True:
                     update_command(units_list_a[my-2]['name'],street_info=existing_street_name)
+                    if bcchance==True:
+                        clear_requirement()
+                if bcchance == True:
+                    generate_requirement('A command unit is requested.')
+                    bcchance=False
                 del units_list_a[idx]
                 units_list_o.append(a_list_cache)
                 redraw_units_lists()
