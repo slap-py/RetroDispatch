@@ -2,7 +2,8 @@ import curses
 import json
 import random
 import time
-
+from playsound import playsound as play_sound
+import threading
 screen = curses.initscr() 
 #curses.noecho() 
 curses.curs_set(0) 
@@ -62,6 +63,8 @@ make call=None, minimums=None, bcchance=None, commandDone=None'''
 def generate_requirement(text):
     screen.addstr(3,19,'                             ')
     screen.addstr(3,19,text)
+    #play_sound('G:\downloads\distapch game\on_notif.mp3',block=False)
+    #threading.Thread(target=play_sound,args=('G:\downloads\distapch game\on_notif.mp3',),daemon=True).start() #CAUSES MAJOR PERFORMANCE ISSUES
 def clear_requirement():
     screen.addstr(3,19,'                             ')
     screen.addstr(3,19,'No active requests from cmd.')
