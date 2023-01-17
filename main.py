@@ -1,4 +1,6 @@
-import curses 
+import curses
+import json
+import random
 
 screen = curses.initscr() 
 #curses.noecho() 
@@ -16,6 +18,12 @@ clear_text = r'''  ____ _     _____    _    ____
 | |   | |   |  _|   / _ \ | |_) |
 | |___| |___| |___ / ___ \|  _ < 
  \____|_____|_____/_/   \_\_| \_'''
+
+sort_text = r''' ____   ___  ____ _____ 
+/ ___| / _ \|  _ \_   _|
+\___ \| | | | |_) || |  
+ ___) | |_| |  _ < | |  
+|____/ \___/|_| \_\|_|  '''
 units_list = {
     'E191':{'name':'Engine 191','type':'ENG','dept':'Mercer Island Fire Department','station':'91','available':True},
     'A191':{'name':'Aid 191','type':'BLSAMBO','dept':'MIFD','station':'91','available':True},
@@ -45,16 +53,59 @@ units_list = {
     'E108':{'name':'Engine 108','type':'ENG','dept':'BVFD','station':'8','available':True},
     'E109':{'name':'Engine 109','type':'ENG','dept':'BVFD','station':'9','available':True},
 }
+'''when terminating a call:
+return all units available
+make call=None, minimums=None, bcchance=None, commandDone=None'''
+def generate_street_name():
+    suffix = ""
+    street_number = str(random.randint(24, 96))
+    if street_number.endswith("11") or street_number.endswith("12") or street_number.endswith("13"):
+        suffix = "th"
+    elif street_number.endswith("1"):
+        suffix = "st"
+    elif street_number.endswith("2"):
+        suffix = "nd"
+    elif street_number.endswith("3"):
+        suffix = "rd"
+    else:
+        suffix = "th"
+    street_number+=suffix
+    street_suffix = random.choice(["St", "Ave", "Blvd", "Dr", "Rd"])
+    street_direction = random.choice(["N", "E", "S", "W", "NE", "NW", "SE", "SW",""])
+    
+    
+    return [street_number,street_suffix,street_direction]
+commandDone = False
+def update_command(unit,street_info = generate_street_name()):
+    global commandDone
+    #8th Avenue W cmd (Engine 191)
+    street_number,street_suffix,street_direction = street_info
+    screen.addstr(2,10,f"{street_number} {street_suffix} {street_direction} CMD ({unit})")
+    screen.addstr(3,19,'No active requests from cmd.')
+    commandDone = True
+def create_call():
+    global call
+    global minimums
+    global bcchance
 
+    f = open('situations.json')
+    data = f.read()
+    f.close()
+    data = json.loads(data)
+    data = random.choice(data)
 
-screen.addstr(1,1,'Assignment:',curses.A_UNDERLINE)
-screen.addstr(1,13,'No current assignment.')
+    screen.addstr(1,1,'Assignment:',curses.A_UNDERLINE)
+    screen.addstr(1,13,data['title'])
 
-screen.addstr(2,1,'Command:',curses.A_UNDERLINE)
-screen.addstr(2,10,'No active command.')
+    screen.addstr(2,1,'Command:',curses.A_UNDERLINE)
+    screen.addstr(2,10,'No active command.')
 
-screen.addstr(3,1,'Command Requests:',curses.A_UNDERLINE)
-screen.addstr(3,19,'No active command.')
+    screen.addstr(3,1,'Command Requests:',curses.A_UNDERLINE)
+    screen.addstr(3,19,'No active command.')
+
+    screen.addstr(4,1,'Situation:',curses.A_UNDERLINE)
+    screen.addstr(4,12,random.choice(data['situation']))
+create_call()
 
 screen.addstr(1,int(curses.COLS/2.5),'On-scene units:',curses.A_UNDERLINE)
 
@@ -111,29 +162,45 @@ while True:
         y, x = screen.getyx()
         #screen.addstr(y, x, str(mx)+' '+str(my)+'   ')
         if mx >=2 and mx <=44 and my >=10 and my <=14:
-            screen.addstr(22,2,'                            ')
+            screen.addstr(22,2,'                                             ')
             screen.addstr(22,2,'Dispatch registered')
             lastButton = 'dispatch'
         elif mx >=2 and mx<=33 and my>=15 and my<=19:
-            screen.addstr(22,2,'                            ')
+            screen.addstr(22,2,'                                            ')
             screen.addstr(22,2,'Clear registered')
             lastButton = 'clear'
         elif mx>=96 and mx<=110 and my>=2:
-            screen.addstr(22,2,'                            ')
+            screen.addstr(22,2,'                                     ')
             if lastButton == 'dispatch':
                 screen.addstr(22,2,'Dispatch '+str(units_list_a[my-2]['name'])+' registered.')
                 #a_list_cache = units_list[list(units_list.keys())[my-2]]
                 a_list_cache = units_list_a[my-2]
                 idx = units_list_a.index(a_list_cache)
+                
+                if commandDone==False:
+                    existing_street_name = generate_street_name()
+                    update_command(units_list_a[my-2]['name'],street_info=existing_street_name)
+                if units_list_a[my-2]['type'] == "BC" and commandDone == True:
+                    update_command(units_list_a[my-2]['name'],street_info=existing_street_name)
                 del units_list_a[idx]
                 units_list_o.append(a_list_cache)
                 redraw_units_lists()
                 #units_list.keys()[my-2]
-            elif lastButton == 'clear':
-                screen.addstr(22,2,'Clear '+list(units_list.keys())[my-2]+' registered.')
             else:
                 screen.addstr(22,2,units_list_a[my-2]['name']+' no command.')
-
-            lastButton = list(units_list.keys())[my-2]
+                
+            lastButton = None
+        elif mx>=48 and mx<=66 and my >=2:
+            if lastButton == 'clear':
+                screen.addstr(22,2,'                                      ')
+                screen.addstr(22,2,'Clear '+units_list_o[my-2]['name']+' registered.')
+                o_list_cache = units_list_o[my-2]
+                idx = units_list_o.index(o_list_cache)
+                del units_list_o[idx]
+                units_list_a.append(o_list_cache)
+                redraw_units_lists()
+            else:
+                screen.addstr(22,2,units_list_o[my-2]['name']+' no command.')
+            
 
 curses.endwin()
