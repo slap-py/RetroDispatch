@@ -238,53 +238,65 @@ while True:
         elif mx>=96 and mx<=110 and my>=2:
             screen.addstr(22,2,'                                     ')
             if lastButton == 'dispatch':
+                try:
+                    screen.addstr(22,2,'Dispatch '+str(units_list_a[my-2]['name'])+' registered.')
+                    #a_list_cache = units_list[list(units_list.keys())[my-2]]
+                    a_list_cache = units_list_a[my-2]
+                    idx = units_list_a.index(a_list_cache)
+                    if a_list_cache['type'] == minimums[0]:
+                        minimums[1] -=1
+                        screen.addstr(23,2,'                                      ')
+                        screen.addstr(23,2,str(str(commandDone)+' '+str(bcchance)))
+                    if minimums[1] == 1 and bcchance == False or bcchance == 'Complete' and minimum_stop == False:
+                        generate_requirement('1 {} company requested.'.format(code_to_pt[minimums[0]]))
+                    elif minimums[1] > 1 and bcchance == False or bcchance == 'Complete' and minimum_stop == False:
+                        generate_requirement ('{} {} companies requested.'.format(minimums[1],code_to_pt[minimums[0]]))
+                    elif bcchance == True:
+                        #wait until BC on scene
+                        pass
+                    if commandDone==False:
+                        existing_street_name = generate_street_name()
+                        update_command(units_list_a[my-2]['name'],street_info=existing_street_name)
 
-                screen.addstr(22,2,'Dispatch '+str(units_list_a[my-2]['name'])+' registered.')
-                #a_list_cache = units_list[list(units_list.keys())[my-2]]
-                a_list_cache = units_list_a[my-2]
-                idx = units_list_a.index(a_list_cache)
-                if a_list_cache['type'] == minimums[0]:
-                    minimums[1] -=1
-                    screen.addstr(23,2,'                                      ')
-                    screen.addstr(23,2,str(str(commandDone)+' '+str(bcchance)))
-                if minimums[1] == 1 and bcchance == False or bcchance == 'Complete' and minimum_stop == False:
-                    generate_requirement('1 {} company requested.'.format(code_to_pt[minimums[0]]))
-                elif minimums[1] > 1 and bcchance == False or bcchance == 'Complete' and minimum_stop == False:
-                    generate_requirement ('{} {} companies requested.'.format(minimums[1],code_to_pt[minimums[0]]))
-                elif bcchance == True:
-                    #wait until BC on scene
+                    if units_list_a[my-2]['type'] == "BC" and commandDone == False:
+                        update_command(units_list_a[my-2]['name'],street_info=existing_street_name)
+                        if bcchance==True:
+                            clear_requirement()
+                    if bcchance == True:
+                        generate_requirement('A command unit is requested.')
+                        #bcchance='Complete'
+                    del units_list_a[idx]
+                    units_list_o.append(a_list_cache)
+                    redraw_units_lists()
+                except IndexError:
                     pass
-                if commandDone==False:
-                    existing_street_name = generate_street_name()
-                    update_command(units_list_a[my-2]['name'],street_info=existing_street_name)
 
-                if units_list_a[my-2]['type'] == "BC" and commandDone == False:
-                    update_command(units_list_a[my-2]['name'],street_info=existing_street_name)
-                    if bcchance==True:
-                        clear_requirement()
-                if bcchance == True:
-                    generate_requirement('A command unit is requested.')
-                    bcchance='Complete'
-
-                del units_list_a[idx]
-                units_list_o.append(a_list_cache)
-                redraw_units_lists()
+                
                 #units_list.keys()[my-2]
             else:
-                screen.addstr(22,2,units_list_a[my-2]['name']+' no command.')
+                try:
+                    screen.addstr(22,2,units_list_a[my-2]['name']+' no command.')
+                except IndexError:
+                    pass
                 
             lastButton = None
         elif mx>=48 and mx<=66 and my >=2:
             if lastButton == 'clear':
-                screen.addstr(22,2,'                                      ')
-                screen.addstr(22,2,'Clear '+units_list_o[my-2]['name']+' registered.')
-                o_list_cache = units_list_o[my-2]
-                idx = units_list_o.index(o_list_cache)
-                del units_list_o[idx]
-                units_list_a.append(o_list_cache)
-                redraw_units_lists()
+                try:
+                    screen.addstr(22,2,'                                      ')
+                    screen.addstr(22,2,'Clear '+units_list_o[my-2]['name']+' registered.')
+                    o_list_cache = units_list_o[my-2]
+                    idx = units_list_o.index(o_list_cache)
+                    del units_list_o[idx]
+                    units_list_a.append(o_list_cache)
+                    redraw_units_lists()
+                except IndexError:
+                    pass
             else:
-                screen.addstr(22,2,units_list_o[my-2]['name']+' no command.')
+                try:
+                    screen.addstr(22,2,units_list_o[my-2]['name']+' no command.')
+                except IndexError:
+                    pass
             
 
 curses.endwin()
